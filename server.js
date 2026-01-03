@@ -8,12 +8,29 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 
+// Serve simple frontend dashboard
+app.get("/", (req, res) => {
+  res.send(`
+    <h1>🚀 WhatsApp Bot Deployment Panel</h1>
+    <p>Use the API endpoints to deploy and manage bots:</p>
+    <ul>
+      <li>POST /deploy → Deploy a bot with session</li>
+      <li>POST /stop → Stop a bot</li>
+      <li>POST /restart → Restart a bot</li>
+      <li>GET /bots → List running bots</li>
+    </ul>
+    <p>Example: Send session JSON via POST /deploy</p>
+  `);
+});
+
 /**
- * DEPLOY BOT
- * Expects:
- *  - username
- *  - phone (optional, for display)
- *  - sessionFiles (object: { filename: JSON content })
+ * Deploy bot
+ * POST JSON:
+ * {
+ *   "username": "glen_254712345678",
+ *   "phone": "+254712345678",
+ *   "sessionFiles": { "creds.json": {...}, "app-state.json": {...} }
+ * }
  */
 app.post("/deploy", async (req, res) => {
   try {
@@ -26,19 +43,22 @@ app.post("/deploy", async (req, res) => {
     const sessionDir = path.join(userDir, "session");
     const botDir = path.join(userDir, "bot");
 
-    // create folders
+    // Create folders
     await fs.ensureDir(sessionDir);
     await fs.ensureDir(botDir);
 
-    // copy bot template
-    await fs.copy(path.join(__dirname, "template-bot", "index.js"), path.join(botDir, "index.js"));
+    // Copy bot template
+    await fs.copy(
+      path.join(__dirname, "template-bot", "index.js"),
+      path.join(botDir, "index.js")
+    );
 
-    // write session files
+    // Write session files
     for (const [filename, content] of Object.entries(sessionFiles)) {
       await fs.writeFile(path.join(sessionDir, filename), JSON.stringify(content, null, 2));
     }
 
-    // start bot with PM2
+    // Start bot with PM2
     const cmd = `SESSION_PATH=${sessionDir} pm2 start ${botDir}/index.js --name ${username}-bot`;
     exec(cmd, (err) => {
       if (err) return res.status(500).json({ error: err.message });
@@ -57,7 +77,7 @@ app.post("/deploy", async (req, res) => {
 });
 
 /**
- * List deployed bots
+ * List running bots
  */
 app.get("/bots", (req, res) => {
   exec(`pm2 list --json`, (err, stdout) => {
@@ -93,6 +113,8 @@ app.post("/restart", (req, res) => {
   });
 });
 
-app.listen(3000, () => {
-  console.log("🚀 WhatsApp Deployment Panel running on port 3000");
+// Use PORT from Render
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 WhatsApp Deployment Panel running on port ${PORT}`);
 });
