@@ -1,5 +1,5 @@
 {
-  "name": "Glentech-panel",
+  "name": "wa-panel",
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
